@@ -1,0 +1,12 @@
+services:
+  api-tests:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.test
+    container_name: travel-api-tests
+
+  web-tests:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.test
+    container_name: travel-web-tests

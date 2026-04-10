@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: travel-platform-db
+    environment:
+      POSTGRES_USER: travel
+      POSTGRES_PASSWORD: travel_dev_pass
+      POSTGRES_DB: travel_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - travel_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travel -d travel_platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: travel-platform-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: travel
+      DB_PASSWORD: travel_dev_pass
+      DB_NAME: travel_platform
+      DB_SSLMODE: disable
+      JWT_SECRET: super-secret-jwt-key-change-in-production
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      FILE_VAULT_PATH: /app/vault
+      DOWNLOAD_TOKEN_TTL: "15m"
+      LOG_LEVEL: info
+      MIGRATIONS_DIR: /app/migrations
+      SEED_FILE: /app/seed/seed.sql
+    volumes:
+      - ./infra/sql/migrations:/app/migrations:ro
+      - ./infra/sql/seeds:/app/seed:ro
+      - api_vault:/app/vault
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: travel-platform-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+
+volumes:
+  travel_pgdata:
+  api_vault:

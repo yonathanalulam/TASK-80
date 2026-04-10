@@ -1,0 +1,7 @@
+vendor/
+.env
+.env.*
+vault/
+*.exe
+*.test
+coverage.*
