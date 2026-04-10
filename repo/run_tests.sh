@@ -2,12 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="$SCRIPT_DIR/docker-compose.test.yml"
+cd "$SCRIPT_DIR"
 
 cleanup() {
   echo ""
   echo "=== Cleaning up test containers ==="
-  docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+  docker rm -f travel-api-tests travel-web-tests 2>/dev/null || true
+  docker rmi -f travel-api-tests-img travel-web-tests-img 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -16,20 +17,41 @@ echo "  Travel Platform — Test Runner (Docker)    "
 echo "============================================"
 echo ""
 
-# Build and run all test services
-docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
-docker compose -f "$COMPOSE_FILE" build --no-cache
+# ── Build & run Go API tests ────────────────────────────────
+echo "=== Building Go API test image ==="
+docker build -t travel-api-tests-img -f - ./apps/api <<'DOCKERFILE'
+FROM golang:1.22-alpine
+WORKDIR /app
+RUN apk add --no-cache git
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+CMD ["go", "test", "-v", "-count=1", "./..."]
+DOCKERFILE
 
 echo ""
 echo "=== Running Go API tests ==="
-docker compose -f "$COMPOSE_FILE" run --rm api-tests
+docker run --rm --name travel-api-tests travel-api-tests-img
 GO_EXIT=$?
+
+# ── Build & run Web frontend tests ─────────────────────────
+echo ""
+echo "=== Building Web frontend test image ==="
+docker build -t travel-web-tests-img -f - ./apps/web <<'DOCKERFILE'
+FROM node:18-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+CMD ["npx", "vitest", "run"]
+DOCKERFILE
 
 echo ""
 echo "=== Running Web frontend tests ==="
-docker compose -f "$COMPOSE_FILE" run --rm web-tests
+docker run --rm --name travel-web-tests travel-web-tests-img
 WEB_EXIT=$?
 
+# ── Summary ─────────────────────────────────────────────────
 echo ""
 echo "============================================"
 if [ $GO_EXIT -eq 0 ] && [ $WEB_EXIT -eq 0 ]; then
