@@ -549,7 +549,7 @@ describe("Document center file model mapping", () => {
       createdAt: "2026-02-15T00:00:00Z",
     };
 
-    const asRecord = file as Record<string, unknown>;
+    const asRecord = file as unknown as Record<string, unknown>;
     expect(asRecord).not.toHaveProperty("name");
     expect(asRecord).not.toHaveProperty("type");
     expect(asRecord).not.toHaveProperty("size");
