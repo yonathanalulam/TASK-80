@@ -1,3 +1,9 @@
+// Package internal contains contract/boundary tests that verify authz policies,
+// error propagation, and response envelope shapes using synthetic route handlers.
+// These tests do NOT use the production router or a real database.
+//
+// For real no-mock HTTP integration tests that boot the production router with
+// a real database, see the apps/api/internal/apitest/ package (build tag: integration).
 package internal
 
 import (

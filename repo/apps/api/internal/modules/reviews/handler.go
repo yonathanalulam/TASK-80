@@ -27,7 +27,7 @@ func RegisterRoutes(g *echo.Group, h *Handler) {
 	g.POST("/violations", h.RecordViolation, middleware.RequireRole(common.RoleAdministrator, common.RoleAccountant))
 	g.POST("/no-shows", h.RecordNoShow, middleware.RequireRole(common.RoleAdministrator, common.RoleAccountant))
 	g.POST("/harassment-flags", h.FlagHarassment)
-	g.GET("/risk/:userId", h.GetRiskSummary, middleware.RequireRole(common.RoleAdministrator))
+	// NOTE: GET /risk/:userId is registered by risk.Handler — do NOT duplicate here.
 }
 
 func (h *Handler) SubmitReview(c echo.Context) error {

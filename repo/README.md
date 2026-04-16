@@ -1,5 +1,7 @@
 # TrailForge - Travel & Hospitality Procurement and Booking Operations Platform
 
+> **Project type: fullstack**
+
 Offline-first modular monolith for travel group itinerary management, procurement, booking, and settlement operations.
 
 ## Architecture
@@ -76,16 +78,14 @@ travel-platform/
 ## Prerequisites
 
 - Docker and Docker Compose (v2+)
-- For local development without Docker:
-  - Go 1.22+
-  - Node.js 18+
-  - PostgreSQL 16+
 
 ## Quick Start (One Command)
 
 ```bash
-docker compose up --build
+docker-compose up
 ```
+
+> Alternatively: `docker compose up --build` (Compose v2 CLI syntax, forces image rebuild).
 
 This starts:
 1. **PostgreSQL** on port 5432 (healthchecked)
@@ -104,6 +104,55 @@ Access the app at **http://localhost:3000**
 | supplier1@travel.local | Supplier | Quote on RFQs, accept POs |
 | courier1@travel.local | Courier Runner | Deliveries, withdrawals |
 | accountant@travel.local | Accountant | Finance, invoices, reconciliation |
+
+## Access
+
+| Service | URL | Port |
+|---------|-----|------|
+| Web UI | http://localhost:3000 | 3000 |
+| API | http://localhost:8080 | 8080 |
+| PostgreSQL | localhost:5432 | 5432 |
+
+## Verification
+
+After running `docker-compose up`, verify the system is operational:
+
+### API Health Check
+
+```bash
+curl -s http://localhost:8080/health
+# Expected: {"status":"ok"}
+```
+
+### API Login
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@travel.local","password":"password123"}'
+# Expected: {"success":true,"data":{"token":"<JWT>"}}
+```
+
+### Authenticated API Call
+
+```bash
+# Extract the token from the login response (requires jq, or copy the token manually)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"organizer1@travel.local","password":"password123"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+curl -s http://localhost:8080/api/v1/itineraries \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 200 OK with JSON array of itineraries
+```
+
+### Web UI Flow
+
+1. Open **http://localhost:3000** in a browser.
+2. Login with `admin@travel.local` / `password123`.
+3. Verify the Dashboard loads with the navigation sidebar visible.
+4. Navigate to **Itineraries** — the seeded "Mountain Trail Adventure 2026" itinerary should appear.
 
 ## Environment Configuration
 
@@ -127,46 +176,43 @@ The API reads configuration from environment variables. See `apps/api/.env.examp
 | `MIGRATIONS_DIR` | No | infra/sql/migrations | Path to migration files |
 | `SEED_FILE` | No | - | Path to seed SQL file (runs once) |
 
-## Local Development (Without Docker)
-
-```bash
-# Start PostgreSQL
-docker compose up postgres -d
-
-# Copy and edit env
-cp apps/api/.env.example apps/api/.env
-# Edit .env with your DB_PASSWORD, JWT_SECRET, MASTER_ENCRYPTION_KEY
-
-# Run API (auto-migrates)
-cd apps/api && go run ./cmd/server
-
-# In another terminal, run frontend
-cd apps/web && npm install && npm run dev
-```
-
 ## Migrations
 
-Migrations run automatically on API startup. They are tracked in the `schema_migrations` table and only run once.
+Migrations run automatically on API startup inside the Docker container. They are tracked in the `schema_migrations` table and only run once.
 
 Migration files are in `infra/sql/migrations/` and execute in lexicographic order.
 
-To run migrations without starting the server:
+To run migrations without starting the full stack:
 
 ```bash
-cd apps/api && go run ./cmd/server --migrate-only
-# Or via dev script:
-./scripts/dev.sh migrate
+docker compose up postgres -d
+docker compose run --rm api /app/server --migrate-only
 ```
 
-## Running Tests
+## Testing
+
+All tests run via Docker. The canonical test command:
 
 ```bash
-# Backend tests
-cd apps/api && go test ./...
+# Run all unit + frontend tests in Docker
+./run_tests.sh
 
-# Frontend type checking
-cd apps/web && npx tsc --noEmit
+# Run API integration tests (spins up test PostgreSQL automatically)
+./run_tests.sh --integration
+
+# Run full-stack E2E smoke tests (spins up entire platform)
+./run_tests.sh --e2e
 ```
+
+### Test Categories
+
+| Category | Location | Description |
+|----------|----------|-------------|
+| API unit tests | `apps/api/internal/**/*_test.go` | Business logic, middleware, DTO validation |
+| API integration tests | `apps/api/internal/apitest/*_test.go` | Real HTTP requests through production router with real database |
+| Contract tests | `apps/api/internal/contract_test.go` | Synthetic HTTP contract/authz boundary tests |
+| Frontend tests | `apps/web/src/__tests__/` | API contract and component tests |
+| E2E smoke tests | `tests/e2e/smoke_test.sh` | Full-stack login-to-operation browser flow |
 
 ## API Versioning
 
