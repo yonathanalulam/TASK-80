@@ -167,4 +167,4 @@ The test surface now meaningfully reduces regression risk compared to an unteste
 
 ## 9. Final Notes
 - This report is strictly static and evidence-based; no runtime success is claimed.
-- Acceptance blockers from earlier state are not observed in this pass; remaining work is hardening quality (invoice fallback behavior, integration-depth tests, tooling/script consistency).
+- Remaining work is hardening quality (invoice fallback behavior, integration-depth tests, tooling/script consistency).
